@@ -1,0 +1,138 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  BASE_URL: http://localhost:8000
+  SANDBOX_OTP_CODE: "111111"
+
+jobs:
+  lint:
+    name: lint + collect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-tests.txt
+            app/requirements.txt
+      - run: pip install -r requirements-tests.txt -r app/requirements.txt
+      - name: ruff
+        run: |
+          ruff check --output-format=github .
+          ruff format --check .
+      - name: mypy
+        run: mypy
+      - name: every test is collected and belongs to a suite
+        run: |
+          python -m pytest --collect-only -q -m smoke | tail -1
+          python -m pytest --collect-only -q -m regression | tail -1
+
+  smoke:
+    name: smoke (API + UI)
+    needs: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # test report check run
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-tests
+      - name: run smoke suite
+        env:
+          TEST_SUITE: smoke
+        run: >
+          python -m pytest -m smoke
+          --alluredir=allure-results --junitxml=junit-smoke.xml
+          --tracing=retain-on-failure --screenshot=only-on-failure --output=test-results
+      - uses: ./.github/actions/collect-results
+        if: always()
+        with:
+          suite: smoke
+
+  regression:
+    name: regression (full suite)
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # test report check run
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-tests
+      - name: run full suite
+        env:
+          TEST_SUITE: regression
+        run: >
+          python -m pytest -m regression
+          --alluredir=allure-results --junitxml=junit-regression.xml
+          --tracing=retain-on-failure --screenshot=only-on-failure --output=test-results
+      - uses: ./.github/actions/collect-results
+        if: always()
+        with:
+          suite: regression
+
+  report:
+    name: Allure report -> GitHub Pages
+    needs: [smoke, regression]
+    if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.smoke.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: allure-results-*
+          path: results
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: keep trend history from the previous report
+        env:
+          SITE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          for suite in regression smoke; do
+            mkdir -p "results/allure-results-$suite/history"
+            for f in history.json history-trend.json duration-trend.json categories-trend.json retry-trend.json; do
+              curl -sfL "$SITE/$suite/history/$f" -o "results/allure-results-$suite/history/$f" || true
+            done
+          done
+      - name: generate reports
+        run: |
+          for suite in regression smoke; do
+            if [ -d "results/allure-results-$suite" ]; then
+              npx --yes allure-commandline@2.34.1 generate "results/allure-results-$suite" -o "site/$suite" --clean
+            fi
+          done
+          cp .github/pages/index.html site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

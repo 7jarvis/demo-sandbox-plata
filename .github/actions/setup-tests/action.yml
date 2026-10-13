@@ -1,0 +1,24 @@
+name: setup tests
+description: Start the app with docker compose and install Python test dependencies and Chromium.
+runs:
+  using: composite
+  steps:
+    - name: start the app
+      shell: bash
+      run: docker compose up -d --build --wait
+    - uses: actions/setup-python@v6
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: pip
+        cache-dependency-path: requirements-tests.txt
+    - name: install test dependencies
+      shell: bash
+      run: pip install -r requirements-tests.txt
+    - name: cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('requirements-tests.txt') }}
+    - name: install Chromium
+      shell: bash
+      run: python -m playwright install --with-deps chromium

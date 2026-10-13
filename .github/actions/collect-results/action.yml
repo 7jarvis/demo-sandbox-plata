@@ -1,0 +1,31 @@
+name: collect results
+description: Publish JUnit results as a check, keep Allure results and Playwright traces, dump app logs on failure.
+inputs:
+  suite:
+    description: smoke or regression
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: app logs
+      shell: bash
+      run: docker compose logs --no-color > app.log; tail -n 100 app.log
+    - name: test report check
+      uses: mikepenz/action-junit-report@v6
+      with:
+        report_paths: junit-${{ inputs.suite }}.xml
+        check_name: ${{ inputs.suite }} tests
+        detailed_summary: true
+        include_passed: false
+    - uses: actions/upload-artifact@v7
+      with:
+        name: allure-results-${{ inputs.suite }}
+        path: allure-results
+        if-no-files-found: ignore
+    - uses: actions/upload-artifact@v7
+      with:
+        name: debug-${{ inputs.suite }}
+        path: |
+          app.log
+          test-results
+        if-no-files-found: ignore

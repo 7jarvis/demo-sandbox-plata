@@ -15,7 +15,6 @@ class Settings:
     base_url: str
     otp_code: str
     http_timeout: float
-    headless: bool
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -25,7 +24,6 @@ class Settings:
             # not a secret, and comes from the same variable as the service's.
             otp_code=os.getenv("SANDBOX_OTP_CODE", "111111"),
             http_timeout=float(os.getenv("HTTP_TIMEOUT", "10")),
-            headless=os.getenv("HEADED", "0") != "1",
         )
         host = urlparse(settings.base_url).hostname or ""
         if host in PRODUCTION_HOSTS:

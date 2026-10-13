@@ -1,0 +1,28 @@
+# Tool configuration only; app/ and tests/ are not installable packages.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["allure-results", "allure-report"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PT"]
+ignore = [
+    "RUF001", "RUF002", "RUF003", # non-ASCII text (Spanish names, typographic minus) is intended
+    "RUF100",                     # noqa comments document why a builtin name is shadowed
+    "PT004", "PT005",             # removed upstream; kept quiet for older ruff
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["framework", "cardpay"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app/cardpay", "tests/framework"]
+mypy_path = ["app", "tests"]
+explicit_package_bases = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+no_implicit_optional = true
+ignore_missing_imports = true
