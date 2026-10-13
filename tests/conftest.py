@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import platform
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -13,11 +13,13 @@ import pytest
 from framework import builders
 from framework.adapters.cardpay_api import CardpayApi
 from framework.config import Settings
+from framework.customer import SignedInCustomer
 from framework.http_client import HttpClient
-from framework.models import Card, Customer
+from framework.models import Card
 from framework.services import AuthService, CardsService
 
 SUITE_MARKERS = {"api", "ui"}
+MAX_TOP_UP = Decimal("50000.00")
 
 
 # ---------------------------------------------------------------- suites
@@ -80,17 +82,6 @@ def auth(api: CardpayApi, settings: Settings) -> AuthService:
 # ---------------------------------------------------------------- test data
 
 
-@dataclass(frozen=True)
-class SignedInCustomer:
-    customer: Customer
-    token: str
-    cards: CardsService
-
-    @property
-    def phone(self) -> str:
-        return self.customer.phone
-
-
 @pytest.fixture
 def new_customer(auth: AuthService, api: CardpayApi) -> Callable[[], SignedInCustomer]:
     """Factory: a freshly registered and signed-in customer. The service has no
@@ -118,12 +109,16 @@ def card(customer: SignedInCustomer) -> Card:
 
 @pytest.fixture
 def funded_card(customer: SignedInCustomer) -> Callable[..., Card]:
-    """Factory: an active card topped up with ``balance``."""
+    """Factory: an active card topped up with ``balance`` (in top-ups of at most
+    50000.00, the largest single top-up)."""
 
     def make(balance: str = "1000.00", daily_limit: str | None = None, label: str | None = "Funded") -> Card:
         card = customer.cards.issue(label=label, daily_limit=daily_limit)
-        if balance != "0.00":
-            customer.cards.top_up(card.id, balance)
+        left = Decimal(balance)
+        while left > 0:
+            chunk = min(left, MAX_TOP_UP)
+            customer.cards.top_up(card.id, f"{chunk:.2f}")
+            left -= chunk
         return customer.cards.get(card.id)
 
     return make
