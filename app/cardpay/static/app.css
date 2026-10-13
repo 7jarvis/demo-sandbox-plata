@@ -20,14 +20,14 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
 a { color: var(--accent); }
-h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
+h1 { overflow-wrap: anywhere; font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
 h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: .9rem 1.5rem; background: var(--surface); border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 700; font-size: 1.15rem; color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
+.brand { white-space: nowrap; font-weight: 700; font-size: 1.15rem; color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
 .brand-tag {
   margin-left: .2rem; font-size: .7rem; font-weight: 600; text-transform: uppercase;
   color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 .3rem; vertical-align: middle;
@@ -74,7 +74,7 @@ dialog .button.danger, .dialog-buttons .button.danger { background: var(--danger
 .flash-error { background: var(--err-bg); color: #6f1c14; }
 .flash-info { background: var(--info-bg); }
 
-.badge { display: inline-block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: .15rem .45rem; border-radius: 4px; }
+.badge { white-space: nowrap; display: inline-block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: .15rem .45rem; border-radius: 4px; }
 .badge-active { background: var(--ok-bg); color: var(--accent); }
 .badge-frozen { background: var(--info-bg); color: #2b4c86; }
 .badge-blocked { background: var(--err-bg); color: var(--danger); }
@@ -89,7 +89,7 @@ dialog .button.danger, .dialog-buttons .button.danger { background: var(--danger
 }
 .card-tile.status-frozen { background: linear-gradient(135deg, #2b3a55, #5d7bb0); }
 .card-tile.status-blocked { background: linear-gradient(135deg, #4a4a4a, #8a8a8a); }
-.card-tile-label { font-weight: 600; }
+.card-tile-label { font-weight: 600; overflow-wrap: anywhere; }
 .card-tile-foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
 .card-tile .badge { background: rgba(255,255,255,.18); color: #fff; }
 
@@ -138,6 +138,8 @@ legend { font-weight: 600; padding: 0 .3rem; }
 .txns th { text-align: left; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: .5rem; border-bottom: 1px solid var(--line); }
 .txns td { padding: .65rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .txns .num { text-align: right; }
+.txns td.num { white-space: nowrap; }
+.txns .desc { overflow-wrap: anywhere; }
 .credit { color: var(--accent); }
 .void { color: var(--muted); text-decoration: line-through; }
 .decline { color: var(--muted); font-size: .85rem; }

@@ -95,7 +95,7 @@
       {% for t in history["items"] %}
       <tr data-testid="transaction-row" data-type="{{ t.type }}" data-status="{{ t.status }}">
         <td><time datetime="{{ t.created_at }}">{{ t.created_at[:16]|replace("T", " ") }}</time></td>
-        <td>{{ "Top-up" if t.type == "top_up" else t.merchant }}</td>
+        <td class="desc">{{ "Top-up" if t.type == "top_up" else t.merchant }}</td>
         <td>
           {% if t.status == "completed" %}<span class="badge badge-active">Completed</span>
           {% else %}<span class="badge badge-blocked">Declined</span> <span class="decline">{{ decline_text(t.decline_reason) }}</span>{% endif %}
