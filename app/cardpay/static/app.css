@@ -29,7 +29,7 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 }
 .brand { font-weight: 700; font-size: 1.15rem; color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
 .brand-tag {
-  margin-left: .45rem; font-size: .7rem; font-weight: 600; text-transform: uppercase;
+  margin-left: .2rem; font-size: .7rem; font-weight: 600; text-transform: uppercase;
   color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 0 .3rem; vertical-align: middle;
 }
 .topbar-nav { display: flex; align-items: center; gap: 1rem; }

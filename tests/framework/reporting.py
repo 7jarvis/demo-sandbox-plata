@@ -24,6 +24,7 @@ CASE_FILES = {
     "STAT": "card-status.md",
     "HIST": "history.md",
     "SEC": "security-and-contract.md",
+    "UI": "web-ui.md",
 }
 
 
