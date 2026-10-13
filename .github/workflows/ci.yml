@@ -43,6 +43,9 @@ jobs:
       - name: mypy
         if: success() || failure()
         run: mypy
+      - name: test cases and automated tests are linked both ways
+        if: success() || failure()
+        run: python scripts/check_traceability.py
       - name: every test is collected and belongs to a suite
         if: success() || failure()
         run: |

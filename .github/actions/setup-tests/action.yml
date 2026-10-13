@@ -15,7 +15,7 @@ runs:
       shell: bash
       run: pip install -r requirements-tests.txt
     - name: cache Playwright browsers
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ hashFiles('requirements-tests.txt') }}
