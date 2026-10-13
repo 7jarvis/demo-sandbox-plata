@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_field.html" import field %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Sign in</h1>
+  <p class="lead">We will send a one-time code to your phone.</p>
+  <form method="post" action="/login" novalidate class="stack">
+    {{ field("phone", "Mobile phone", "phone", form.phone, errors.phone, type="tel", hint="+52 and 10 digits", autocomplete="tel", placeholder="+52") }}
+    <button type="submit" class="button">Get code</button>
+  </form>
+  <p class="alt">New here? <a href="/register">Create an account</a></p>
+</section>
+{% endblock %}

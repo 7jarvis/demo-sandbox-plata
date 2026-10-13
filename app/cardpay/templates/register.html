@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_field.html" import field %}
+{% block title %}Create account{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Create an account</h1>
+  <p class="lead">Get a virtual card in under a minute.</p>
+  <form method="post" action="/register" novalidate class="stack">
+    {{ field("full_name", "Full name", "full-name", form.full_name, errors.full_name, autocomplete="name") }}
+    {{ field("phone", "Mobile phone", "phone", form.phone, errors.phone, type="tel", hint="+52 and 10 digits", autocomplete="tel", placeholder="+52") }}
+    {{ field("email", "Email", "email", form.email, errors.email, type="email", autocomplete="email") }}
+    <button type="submit" class="button">Create account</button>
+  </form>
+  <p class="alt">Already a customer? <a href="/login">Sign in</a></p>
+</section>
+{% endblock %}

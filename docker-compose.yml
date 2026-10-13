@@ -1,0 +1,18 @@
+# The system under test: card sandbox with its web UI and JSON API on :8000.
+#   make up    -> docker compose up -d --build --wait
+#   make test  -> pytest against it
+name: cardpay
+
+services:
+  cardpay:
+    build: ./app
+    environment:
+      SESSION_SECRET: ${SESSION_SECRET:-local-dev-session-secret}
+      SANDBOX_OTP_CODE: ${SANDBOX_OTP_CODE:-111111}
+    ports:
+      - "8000:8000"
+    tmpfs:
+      - /data:uid=10001 # fresh database on every start
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

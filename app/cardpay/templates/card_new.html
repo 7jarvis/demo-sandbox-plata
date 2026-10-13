@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_field.html" import field %}
+{% block title %}Issue a card{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="/cards">← My cards</a></p>
+<section class="panel narrow">
+  <h1>Issue a virtual card</h1>
+  {% if errors.form %}<div class="flash flash-error" role="alert" data-testid="form-error">{{ errors.form }}</div>{% endif %}
+  <form method="post" action="/cards/new" novalidate class="stack">
+    {{ field("label", "Card name (optional)", "label", form.label, errors.label, hint="Up to 30 characters, e.g. Subscriptions") }}
+    {{ field("daily_limit", "Daily spending limit, MXN", "daily-limit", form.daily_limit, errors.daily_limit, inputmode="decimal", hint="From 100.00 to 100000.00") }}
+    <button type="submit" class="button">Issue card</button>
+  </form>
+</section>
+{% endblock %}

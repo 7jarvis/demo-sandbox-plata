@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}My cards{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>My cards</h1>
+  <a class="button" href="/cards/new">Issue a card</a>
+</div>
+{% if cards %}
+<ul class="card-grid" aria-label="Cards">
+  {% for card in cards %}
+  <li>
+    <a class="card-tile status-{{ card.status }}" href="/cards/{{ card.id }}" data-testid="card-tile" data-card-id="{{ card.id }}">
+      <span class="card-tile-label">{{ card.label or "Virtual card" }}</span>
+      <span class="pan" data-testid="card-pan">{{ card.pan_masked }}</span>
+      <span class="card-tile-foot">
+        <span class="badge badge-{{ card.status }}" data-testid="card-status">{{ card.status|capitalize }}</span>
+        <span class="amount" data-testid="card-balance">{{ card.balance }} {{ card.currency }}</span>
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="empty" data-testid="cards-empty">
+  <p>You have no cards yet.</p>
+  <p>Issue a virtual card to start paying online.</p>
+</div>
+{% endif %}
+{% endblock %}

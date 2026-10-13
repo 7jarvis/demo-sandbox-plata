@@ -1,0 +1,450 @@
+openapi: 3.1.0
+info:
+  title: Cardpay sandbox API
+  version: 1.0.0
+  description: |
+    Virtual debit cards for a customer: issue, top up, pay, freeze, block and
+    read the history of operations.
+
+    Conventions
+    - Money is a string with exactly two decimals (`"150.00"`), currency MXN.
+      JSON numbers are rejected.
+    - Unknown fields in a request body are rejected (`422 VALIDATION_ERROR`).
+    - Every error has the same shape: `{"error": {"code", "message", "details"}}`.
+      `code` is stable and is what clients should branch on.
+    - Money-moving requests (top-ups, payments) require an `Idempotency-Key`
+      header. Repeating a request with the same key and the same body returns
+      the original transaction with `200` and `Idempotent-Replayed: true`; the
+      same key with a different body is rejected with `422 IDEMPOTENCY_KEY_REUSED`.
+      Keys are scoped to the customer.
+    - Another customer's card answers exactly like a card that does not exist (404).
+    - Every response carries `X-Request-Id`; a client-supplied value is echoed.
+servers:
+  - url: http://localhost:8000/api/v1
+
+security:
+  - bearer: []
+
+paths:
+  /customers:
+    post:
+      summary: Register a customer
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Registered
+          content: { application/json: { schema: { $ref: "#/components/schemas/Customer" } } }
+        "400": { $ref: "#/components/responses/MalformedJson" }
+        "409":
+          description: "`PHONE_ALREADY_REGISTERED` or `EMAIL_ALREADY_REGISTERED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /auth/otp:
+    post:
+      summary: Send a one-time code to a phone
+      description: |
+        Always answers 201, also for a phone that is not registered, so the
+        endpoint cannot be used to find out who is a customer. In the sandbox
+        the code is the value of `SANDBOX_OTP_CODE` (default `111111`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [phone]
+              properties:
+                phone: { $ref: "#/components/schemas/Phone" }
+      responses:
+        "201":
+          description: Code sent
+          content: { application/json: { schema: { $ref: "#/components/schemas/OtpChallenge" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /auth/token:
+    post:
+      summary: Exchange a one-time code for an access token
+      description: |
+        A code can be used once. After 3 wrong attempts the challenge is locked
+        (`429 OTP_ATTEMPTS_EXCEEDED`) and a new code must be requested.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [otp_id, code]
+              properties:
+                otp_id: { type: string, maxLength: 64 }
+                code: { type: string, pattern: "^\\d{6}$" }
+      responses:
+        "200":
+          description: Token issued
+          content: { application/json: { schema: { $ref: "#/components/schemas/Token" } } }
+        "401":
+          description: "`OTP_INVALID` (details say how many attempts are left) or `OTP_EXPIRED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429":
+          description: "`OTP_ATTEMPTS_EXCEEDED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /me:
+    get:
+      summary: The authenticated customer
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/Customer" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /cards:
+    get:
+      summary: List the customer's cards (oldest first, blocked included)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Card" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Issue a virtual card
+      description: A customer can hold at most 3 cards that are not blocked.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                label: { type: [string, "null"], minLength: 1, maxLength: 30, description: "Trimmed" }
+                daily_limit:
+                  allOf: [{ $ref: "#/components/schemas/Money" }]
+                  description: "100.00 to 100000.00, default 20000.00"
+      responses:
+        "201":
+          description: Issued, status `active`, balance `0.00`
+          content: { application/json: { schema: { $ref: "#/components/schemas/Card" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: "`CARD_LIMIT_REACHED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{card_id}:
+    parameters: [{ $ref: "#/components/parameters/CardId" }]
+    get:
+      summary: Get a card
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/Card" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+
+  /cards/{card_id}/freeze:
+    parameters: [{ $ref: "#/components/parameters/CardId" }]
+    post:
+      summary: Freeze a card temporarily (payments are declined, top-ups still work)
+      responses:
+        "200":
+          description: Frozen
+          content: { application/json: { schema: { $ref: "#/components/schemas/Card" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "409":
+          description: "`CARD_ALREADY_FROZEN` or `CARD_BLOCKED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /cards/{card_id}/unfreeze:
+    parameters: [{ $ref: "#/components/parameters/CardId" }]
+    post:
+      summary: Unfreeze a card
+      responses:
+        "200":
+          description: Active again
+          content: { application/json: { schema: { $ref: "#/components/schemas/Card" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "409":
+          description: "`CARD_NOT_FROZEN` or `CARD_BLOCKED`"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /cards/{card_id}/block:
+    parameters: [{ $ref: "#/components/parameters/CardId" }]
+    post:
+      summary: Block a card permanently
+      description: |
+        Irreversible. A blocked card declines payments, rejects top-ups and
+        cannot be frozen or unfrozen. Its balance and history stay readable,
+        and it no longer counts towards the 3-card limit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [lost, stolen, fraud] }
+      responses:
+        "200":
+          description: Blocked
+          content: { application/json: { schema: { $ref: "#/components/schemas/Card" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "409":
+          description: "`CARD_BLOCKED` (already blocked)"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{card_id}/top-ups:
+    parameters:
+      - { $ref: "#/components/parameters/CardId" }
+      - { $ref: "#/components/parameters/IdempotencyKey" }
+    post:
+      summary: Top up a card
+      description: Allowed for active and frozen cards. The balance cannot exceed 500000.00.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount]
+              properties:
+                amount:
+                  allOf: [{ $ref: "#/components/schemas/Money" }]
+                  description: "1.00 to 50000.00"
+      responses:
+        "201":
+          description: Completed top-up
+          content: { application/json: { schema: { $ref: "#/components/schemas/Transaction" } } }
+        "200": { $ref: "#/components/responses/Replayed" }
+        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "409":
+          description: "`CARD_BLOCKED` or `BALANCE_LIMIT_EXCEEDED`; nothing is recorded"
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{card_id}/payments:
+    parameters:
+      - { $ref: "#/components/parameters/CardId" }
+      - { $ref: "#/components/parameters/IdempotencyKey" }
+    post:
+      summary: Pay with a card (sandbox purchase at a merchant)
+      description: |
+        A decline is a normal outcome, not an error: the answer is `201` with
+        `status: declined` and a `decline_reason`, the transaction appears in
+        the history and the balance does not change. Checks, in order:
+        `CARD_BLOCKED`, `CARD_FROZEN`, `DAILY_LIMIT_EXCEEDED` (completed
+        payments since 00:00 UTC plus this amount above the limit),
+        `INSUFFICIENT_FUNDS`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount, merchant]
+              properties:
+                amount:
+                  allOf: [{ $ref: "#/components/schemas/Money" }]
+                  description: "0.01 to 100000.00"
+                merchant: { type: string, minLength: 2, maxLength: 60, description: "Trimmed" }
+      responses:
+        "201":
+          description: Completed or declined payment
+          content: { application/json: { schema: { $ref: "#/components/schemas/Transaction" } } }
+        "200": { $ref: "#/components/responses/Replayed" }
+        "400": { $ref: "#/components/responses/IdempotencyKeyRequired" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /cards/{card_id}/transactions:
+    parameters: [{ $ref: "#/components/parameters/CardId" }]
+    get:
+      summary: History of a card, newest first
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [top_up, payment] } }
+        - { name: status, in: query, schema: { type: string, enum: [completed, declined] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: A page of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, total, limit, offset]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Transaction" } }
+                  total: { type: integer, minimum: 0, description: "Matching the filters, ignoring paging" }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/CardNotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+
+  parameters:
+    CardId: { name: card_id, in: path, required: true, schema: { type: string } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64 }
+
+  responses:
+    Unauthorized:
+      description: "`UNAUTHORIZED`: token missing, invalid or expired"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    CardNotFound:
+      description: "`CARD_NOT_FOUND`: no such card for this customer"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    MalformedJson:
+      description: "`MALFORMED_JSON`: body is not a JSON object"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    ValidationError:
+      description: "`VALIDATION_ERROR`, one `details` entry per invalid field"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    IdempotencyKeyRequired:
+      description: "`IDEMPOTENCY_KEY_REQUIRED`"
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Replayed:
+      description: Repeated request with the same key and body; the original transaction
+      headers:
+        Idempotent-Replayed: { schema: { type: string, const: "true" } }
+      content: { application/json: { schema: { $ref: "#/components/schemas/Transaction" } } }
+
+  schemas:
+    Money: { type: string, pattern: "^(0|[1-9]\\d{0,8})\\.\\d{2}$", examples: ["150.00"] }
+    Phone: { type: string, pattern: "^\\+52\\d{10}$", examples: ["+525512345678"] }
+    Timestamp: { type: string, format: date-time, description: "UTC, milliseconds, `Z` suffix" }
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [full_name, phone, email]
+      properties:
+        full_name:
+          type: string
+          description: Inner whitespace collapsed and trimmed; 2-100 characters; letters, spaces, hyphens, apostrophes.
+        phone: { $ref: "#/components/schemas/Phone" }
+        email: { type: string, maxLength: 254, description: "Stored lower-cased" }
+
+    Customer:
+      type: object
+      additionalProperties: false
+      required: [id, full_name, phone, email, created_at]
+      properties:
+        id: { type: string, pattern: "^cus_[0-9a-f]{24}$" }
+        full_name: { type: string }
+        phone: { $ref: "#/components/schemas/Phone" }
+        email: { type: string }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+
+    OtpChallenge:
+      type: object
+      additionalProperties: false
+      required: [otp_id, expires_in]
+      properties:
+        otp_id: { type: string, pattern: "^otp_[0-9a-f]{24}$" }
+        expires_in: { type: integer, description: Seconds }
+
+    Token:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, description: Seconds }
+
+    Card:
+      type: object
+      additionalProperties: false
+      required: [id, label, pan_masked, expires, status, block_reason, currency, balance, daily_limit, spent_today, created_at]
+      properties:
+        id: { type: string, pattern: "^card_[0-9a-f]{24}$" }
+        label: { type: [string, "null"] }
+        pan_masked: { type: string, pattern: "^\\d{4} \\*{4} \\*{4} \\d{4}$" }
+        expires: { type: string, pattern: "^(0[1-9]|1[0-2])/\\d{2}$" }
+        status: { type: string, enum: [active, frozen, blocked] }
+        block_reason: { type: [string, "null"], enum: [lost, stolen, fraud, null], description: "Set only when blocked" }
+        currency: { type: string, const: MXN }
+        balance: { $ref: "#/components/schemas/Money" }
+        daily_limit: { $ref: "#/components/schemas/Money" }
+        spent_today: { $ref: "#/components/schemas/Money" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+
+    Transaction:
+      type: object
+      additionalProperties: false
+      description: |
+        Invariants: a top-up is always `completed` and has no merchant;
+        `completed` has `balance_after` and no `decline_reason`; `declined` has
+        a `decline_reason` and no `balance_after`.
+      required: [id, card_id, type, status, amount, currency, merchant, decline_reason, balance_after, created_at]
+      properties:
+        id: { type: string, pattern: "^txn_[0-9a-f]{24}$" }
+        card_id: { type: string }
+        type: { type: string, enum: [top_up, payment] }
+        status: { type: string, enum: [completed, declined] }
+        amount: { $ref: "#/components/schemas/Money" }
+        currency: { type: string, const: MXN }
+        merchant: { type: [string, "null"] }
+        decline_reason:
+          type: [string, "null"]
+          enum: [CARD_BLOCKED, CARD_FROZEN, DAILY_LIMIT_EXCEEDED, INSUFFICIENT_FUNDS, null]
+        balance_after: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: [array, "null"]
+              items:
+                type: object
+                additionalProperties: false
+                required: [field, message]
+                properties:
+                  field: { type: string }
+                  message: { type: string }

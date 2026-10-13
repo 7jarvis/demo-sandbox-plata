@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "_field.html" import field %}
+{% block title %}{{ card.label or "Card" }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="/cards">← My cards</a></p>
+
+<div class="card-layout">
+  <section class="card-summary" aria-labelledby="card-title">
+    <div class="card-visual status-{{ card.status }}">
+      <span class="card-visual-brand">cardpay</span>
+      <span class="pan" data-testid="card-pan">{{ card.pan_masked }}</span>
+      <span class="card-visual-foot">
+        <span>Valid thru <span data-testid="card-expires">{{ card.expires }}</span></span>
+        <span class="badge badge-{{ card.status }}" data-testid="card-status">{{ card.status|capitalize }}</span>
+      </span>
+    </div>
+    <h1 id="card-title">{{ card.label or "Virtual card" }}</h1>
+    <dl class="figures">
+      <div><dt>Balance</dt><dd class="amount big" data-testid="card-balance">{{ card.balance }} {{ card.currency }}</dd></div>
+      <div><dt>Spent today</dt><dd class="amount" data-testid="card-spent-today">{{ card.spent_today }}</dd></div>
+      <div><dt>Daily limit</dt><dd class="amount" data-testid="card-daily-limit">{{ card.daily_limit }}</dd></div>
+    </dl>
+  </section>
+
+  <div class="card-actions">
+    {% if card.status == "blocked" %}
+    <div class="notice notice-blocked" data-testid="blocked-notice">
+      <strong>This card is blocked</strong> (reason: {{ card.block_reason }}).
+      It cannot be used, topped up or unblocked. Issue a new card instead.
+    </div>
+    {% else %}
+    <section class="panel" aria-labelledby="topup-title">
+      <h2 id="topup-title">Top up</h2>
+      <form method="post" action="/cards/{{ card.id }}/top-up" novalidate class="inline-form" data-once>
+        <input type="hidden" name="idempotency_key" value="top-up-{{ key }}">
+        {{ field("amount", "Amount, MXN", "topup-amount", form.topup_amount, errors.topup_amount, inputmode="decimal", hint="From 1.00 to 50000.00") }}
+        <button type="submit" class="button">Top up</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="pay-title">
+      <h2 id="pay-title">Test purchase</h2>
+      <form method="post" action="/cards/{{ card.id }}/pay" novalidate class="inline-form" data-once>
+        <input type="hidden" name="idempotency_key" value="pay-{{ key }}">
+        {{ field("merchant", "Merchant", "pay-merchant", form.pay_merchant, errors.pay_merchant) }}
+        {{ field("amount", "Amount, MXN", "pay-amount", form.pay_amount, errors.pay_amount, inputmode="decimal") }}
+        <button type="submit" class="button">Pay</button>
+      </form>
+    </section>
+
+    <section class="panel controls" aria-labelledby="controls-title">
+      <h2 id="controls-title">Card controls</h2>
+      {% if card.status == "frozen" %}
+      <form method="post" action="/cards/{{ card.id }}/unfreeze"><button type="submit" class="button secondary">Unfreeze card</button></form>
+      {% else %}
+      <form method="post" action="/cards/{{ card.id }}/freeze"><button type="submit" class="button secondary">Freeze card</button></form>
+      {% endif %}
+      <button type="button" class="button danger" data-open-dialog="block-dialog">Block card</button>
+      <p class="field-hint">Freezing is temporary. Blocking is permanent.</p>
+    </section>
+
+    <dialog id="block-dialog" aria-labelledby="block-title">
+      <form method="post" action="/cards/{{ card.id }}/block" class="stack">
+        <h2 id="block-title">Block this card?</h2>
+        <p>A blocked card cannot be unblocked. Its balance stays on your account.</p>
+        <fieldset>
+          <legend>Reason</legend>
+          <label class="radio"><input type="radio" name="reason" value="lost" required> Lost</label>
+          <label class="radio"><input type="radio" name="reason" value="stolen"> Stolen</label>
+          <label class="radio"><input type="radio" name="reason" value="fraud"> Suspicious activity</label>
+        </fieldset>
+        <div class="dialog-buttons">
+          <button type="button" class="button secondary" data-close-dialog>Cancel</button>
+          <button type="submit" class="button danger">Block permanently</button>
+        </div>
+      </form>
+    </dialog>
+    {% endif %}
+  </div>
+</div>
+
+<section class="panel history" aria-labelledby="history-title">
+  <div class="history-head">
+    <h2 id="history-title">Transactions</h2>
+    <nav class="tabs" aria-label="Filter transactions">
+      <a href="/cards/{{ card.id }}" {% if not kind %}aria-current="page"{% endif %}>All</a>
+      <a href="/cards/{{ card.id }}?type=top_up" {% if kind == "top_up" %}aria-current="page"{% endif %}>Top-ups</a>
+      <a href="/cards/{{ card.id }}?type=payment" {% if kind == "payment" %}aria-current="page"{% endif %}>Payments</a>
+    </nav>
+  </div>
+  {% if history["items"] %}
+  <table class="txns">
+    <thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col">Status</th><th scope="col" class="num">Amount, MXN</th></tr></thead>
+    <tbody>
+      {% for t in history["items"] %}
+      <tr data-testid="transaction-row" data-type="{{ t.type }}" data-status="{{ t.status }}">
+        <td><time datetime="{{ t.created_at }}">{{ t.created_at[:16]|replace("T", " ") }}</time></td>
+        <td>{{ "Top-up" if t.type == "top_up" else t.merchant }}</td>
+        <td>
+          {% if t.status == "completed" %}<span class="badge badge-active">Completed</span>
+          {% else %}<span class="badge badge-blocked">Declined</span> <span class="decline">{{ decline_text(t.decline_reason) }}</span>{% endif %}
+        </td>
+        <td class="num amount {{ 'credit' if t.type == 'top_up' else 'debit' }}{% if t.status == 'declined' %} void{% endif %}" data-testid="transaction-amount">{{ "+" if t.type == "top_up" else "−" }}{{ t.amount }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty" data-testid="history-empty">No transactions yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

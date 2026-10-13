@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cardpay{% endblock %} · Cardpay sandbox</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">cardpay<span class="brand-tag">sandbox</span></a>
+    {% if customer %}
+    <nav class="topbar-nav" aria-label="Account">
+      <span class="who" data-testid="customer-name">{{ customer.full_name }}</span>
+      <form method="post" action="/logout">
+        <button type="submit" class="link-button">Sign out</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="page">
+    {% if flash %}
+      <div class="flash flash-{{ flash.kind }}" role="{{ 'alert' if flash.kind == 'error' else 'status' }}" data-testid="flash">{{ flash.text }}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">Test environment. No real cards or money.</footer>
+</body>
+</html>

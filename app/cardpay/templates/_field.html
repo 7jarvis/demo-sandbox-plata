@@ -1,0 +1,14 @@
+{#- One labelled input with its error message. Call with: name, label, id, value, error, type, hint, autocomplete, inputmode -#}
+{%- macro field(name, label, id, value="", error=None, type="text", hint=None, autocomplete=None, inputmode=None, placeholder=None) -%}
+<div class="field{% if error %} field-invalid{% endif %}">
+  <label for="{{ id }}">{{ label }}</label>
+  <input id="{{ id }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}"
+    {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+    {%- if inputmode %} inputmode="{{ inputmode }}"{% endif %}
+    {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+    {%- if error or hint %} aria-describedby="{{ id }}-{{ 'error' if error else 'hint' }}"{% endif %}
+    {%- if error %} aria-invalid="true"{% endif %}>
+  {% if error %}<p class="field-error" id="{{ id }}-error">{{ error }}</p>
+  {% elif hint %}<p class="field-hint" id="{{ id }}-hint">{{ hint }}</p>{% endif %}
+</div>
+{%- endmacro %}
