@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, TypeVar
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 from starlette.concurrency import run_in_threadpool
@@ -15,8 +15,6 @@ from .domain import CardService
 from .errors import AppError, unauthorized
 from .schemas import BlockIn, IssueCardIn, OtpIn, PaymentIn, RegisterIn, TokenIn, TopUpIn, errors_to_details
 
-M = TypeVar("M", bound=BaseModel)
-
 MAX_BODY_BYTES = 16 * 1024
 TYPES = ("top_up", "payment")
 STATUSES = ("completed", "declined")
@@ -27,7 +25,7 @@ def _service(request: Request) -> CardService:
     return svc
 
 
-async def _body(request: Request, model: type[M]) -> M:
+async def _body[M: BaseModel](request: Request, model: type[M]) -> M:
     raw = await request.body()
     if len(raw) > MAX_BODY_BYTES:
         raise AppError(413, "PAYLOAD_TOO_LARGE", "Request body is too large.")

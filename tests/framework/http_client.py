@@ -66,9 +66,7 @@ class HttpClient:
             all_headers.setdefault("Content-Type", "application/json")
 
         url = f"{self.base_url}{path}"
-        resp = self._session.request(
-            method, url, data=data, headers=all_headers, params=params, timeout=self.timeout
-        )
+        resp = self._session.request(method, url, data=data, headers=all_headers, params=params, timeout=self.timeout)
         result = HttpResponse(
             method=method,
             url=resp.url,

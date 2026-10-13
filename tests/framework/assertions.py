@@ -25,13 +25,10 @@ def rejected(status: int, code: str, *, field: str | None = None) -> Iterator[Re
     UnexpectedResponse, which is not caught here).
     """
     caught = Rejection()
-    try:
+    with pytest.raises(ApiError) as info:
         yield caught
-    except ApiError as exc:
-        caught.error = exc
-        with allure.step(f"Rejected with {status} {code}" + (f" on field {field}" if field else "")):
-            assert (exc.status, exc.code) == (status, code), f"expected {status} {code}, got {exc}"
-            if field is not None:
-                assert field in exc.fields, f"expected an error on '{field}', got {exc.fields}"
-    else:
-        pytest.fail(f"expected rejection {status} {code}, but the request succeeded")
+    exc = caught.error = info.value
+    with allure.step(f"Rejected with {status} {code}" + (f" on field {field}" if field else "")):
+        assert (exc.status, exc.code) == (status, code), f"expected {status} {code}, got {exc}"
+        if field is not None:
+            assert field in exc.fields, f"expected an error on '{field}', got {exc.fields}"

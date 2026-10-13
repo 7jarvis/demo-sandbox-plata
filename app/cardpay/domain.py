@@ -226,9 +226,7 @@ class CardService:
     @staticmethod
     def _card_row(conn: sqlite3.Connection, customer_id: str, card_id: str) -> sqlite3.Row:
         # Another customer's card is reported exactly like a missing one.
-        row = conn.execute(
-            "SELECT * FROM cards WHERE id = ? AND customer_id = ?", (card_id, customer_id)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM cards WHERE id = ? AND customer_id = ?", (card_id, customer_id)).fetchone()
         if row is None:
             raise not_found("CARD_NOT_FOUND", "Card not found.")
         return row
@@ -245,8 +243,7 @@ class CardService:
             if count >= self.settings.max_cards_per_customer:
                 raise conflict(
                     "CARD_LIMIT_REACHED",
-                    f"A customer can hold at most {self.settings.max_cards_per_customer} cards "
-                    "that are not blocked.",
+                    f"A customer can hold at most {self.settings.max_cards_per_customer} cards that are not blocked.",
                 )
             body = CARD_BIN + "".join(secrets.choice("0123456789") for _ in range(9))
             pan = body + _luhn_check_digit(body)
@@ -263,9 +260,7 @@ class CardService:
 
     def list_cards(self, customer_id: str) -> list[dict[str, Any]]:
         with self.db.read() as conn:
-            rows = conn.execute(
-                "SELECT * FROM cards WHERE customer_id = ? ORDER BY seq", (customer_id,)
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM cards WHERE customer_id = ? ORDER BY seq", (customer_id,)).fetchall()
             return [self._view(conn, r) for r in rows]
 
     def get_card(self, customer_id: str, card_id: str) -> dict[str, Any]:
@@ -297,16 +292,12 @@ class CardService:
             card = self._card_row(conn, customer_id, card_id)
             if card["status"] == "blocked":
                 raise conflict(CARD_BLOCKED, "The card is already blocked.")
-            conn.execute(
-                "UPDATE cards SET status = 'blocked', block_reason = ? WHERE id = ?", (reason, card_id)
-            )
+            conn.execute("UPDATE cards SET status = 'blocked', block_reason = ? WHERE id = ?", (reason, card_id))
             return self._view(conn, self._card_row(conn, customer_id, card_id))
 
     # ---------------------------------------------------------------- money
 
-    def _replay(
-        self, conn: sqlite3.Connection, customer_id: str, key: str, request_hash: str
-    ) -> dict[str, Any] | None:
+    def _replay(self, conn: sqlite3.Connection, customer_id: str, key: str, request_hash: str) -> dict[str, Any] | None:
         row = conn.execute(
             "SELECT request_hash, transaction_id FROM idempotency_keys WHERE customer_id = ? AND key = ?",
             (customer_id, key),

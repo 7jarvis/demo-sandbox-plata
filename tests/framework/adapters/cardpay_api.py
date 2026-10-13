@@ -64,29 +64,21 @@ class CardpayApi:
         return self.http.request("POST", f"/cards/{card_id}/unfreeze", headers=_auth(token))
 
     def block(self, token: str | None, card_id: str, payload: Payload) -> HttpResponse:
-        return self.http.request(
-            "POST", f"/cards/{card_id}/block", json_body=_serialize(payload), headers=_auth(token)
-        )
+        return self.http.request("POST", f"/cards/{card_id}/block", json_body=_serialize(payload), headers=_auth(token))
 
     # money
 
-    def top_up(
-        self, token: str | None, card_id: str, payload: Payload, idempotency_key: str | None
-    ) -> HttpResponse:
+    def top_up(self, token: str | None, card_id: str, payload: Payload, idempotency_key: str | None) -> HttpResponse:
         headers = _auth(token)
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
-        return self.http.request(
-            "POST", f"/cards/{card_id}/top-ups", json_body=_serialize(payload), headers=headers
-        )
+        return self.http.request("POST", f"/cards/{card_id}/top-ups", json_body=_serialize(payload), headers=headers)
 
     def pay(self, token: str | None, card_id: str, payload: Payload, idempotency_key: str | None) -> HttpResponse:
         headers = _auth(token)
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
-        return self.http.request(
-            "POST", f"/cards/{card_id}/payments", json_body=_serialize(payload), headers=headers
-        )
+        return self.http.request("POST", f"/cards/{card_id}/payments", json_body=_serialize(payload), headers=headers)
 
     def transactions(self, token: str | None, card_id: str, params: dict[str, Any] | None = None) -> HttpResponse:
         return self.http.request("GET", f"/cards/{card_id}/transactions", headers=_auth(token), params=params)

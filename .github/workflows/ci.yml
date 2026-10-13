@@ -35,10 +35,16 @@ jobs:
       - name: ruff
         run: |
           ruff check --output-format=github .
-          ruff format --check .
+          # on a formatting difference, show the diff as annotations on the run
+          ruff format --check . || {
+            ruff format --diff . 2>/dev/null | python -c "import sys; d = sys.stdin.read(); [print('::notice title=ruff format diff %d::' % (i // 3500 + 1) + d[i:i + 3500].replace('%', '%25').replace('\n', '%0A')) for i in range(0, len(d), 3500)]"
+            exit 1
+          }
       - name: mypy
+        if: success() || failure()
         run: mypy
       - name: every test is collected and belongs to a suite
+        if: success() || failure()
         run: |
           python -m pytest --collect-only -q -m smoke | tail -1
           python -m pytest --collect-only -q -m regression | tail -1

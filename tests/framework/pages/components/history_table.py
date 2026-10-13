@@ -28,9 +28,7 @@ class HistoryTable:
         return self.root.get_by_test_id("history-empty")
 
     def filter_link(self, kind: Literal["all", "top_up", "payment"]) -> Locator:
-        return self.root.get_by_role("navigation", name="Filter transactions").get_by_role(
-            "link", name=FILTERS[kind]
-        )
+        return self.root.get_by_role("navigation", name="Filter transactions").get_by_role("link", name=FILTERS[kind])
 
     @allure.step("Show {kind} operations")
     def show(self, kind: Literal["all", "top_up", "payment"]) -> None:

@@ -68,9 +68,7 @@ def test_fourth_card_is_refused(signed_in_page: Page, customer: SignedInCustomer
 
 @allure.title("A card of another customer cannot be opened")
 @case("TC-UI-08")
-def test_other_customers_card_is_not_shown(
-    signed_in_page: Page, new_customer: Callable[[], SignedInCustomer]
-) -> None:
+def test_other_customers_card_is_not_shown(signed_in_page: Page, new_customer: Callable[[], SignedInCustomer]) -> None:
     stranger_card = new_customer().cards.issue(label="Not yours")
     card_page = CardPage(signed_in_page, stranger_card.id)
 

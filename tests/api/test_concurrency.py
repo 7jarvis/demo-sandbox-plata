@@ -64,9 +64,7 @@ def test_parallel_payments_cannot_overdraw(
 
 @allure.title("Simultaneous retries of one top-up credit the card once")
 @case("TC-TOP-10")
-def test_parallel_retries_with_same_key_credit_once(
-    settings: Settings, customer: SignedInCustomer, card: Card
-) -> None:
+def test_parallel_retries_with_same_key_credit_once(settings: Settings, customer: SignedInCustomer, card: Card) -> None:
     key = new_idempotency_key()
 
     results = run_in_parallel(settings, customer.token, lambda s: s.top_up(card.id, "500.00", idempotency_key=key))

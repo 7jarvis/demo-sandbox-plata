@@ -10,7 +10,6 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "PT"]
 ignore = [
     "RUF001", "RUF002", "RUF003", # non-ASCII text (Spanish names, typographic minus) is intended
     "RUF100",                     # noqa comments document why a builtin name is shadowed
-    "PT004", "PT005",             # removed upstream; kept quiet for older ruff
 ]
 
 [tool.ruff.lint.isort]

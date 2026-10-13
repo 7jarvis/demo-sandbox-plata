@@ -7,11 +7,8 @@ docs/test-cases, so the report shows which documented case a test covers.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
 
 import allure
-
-F = TypeVar("F", bound=Callable[..., object])
 
 DOCS_URL = "https://github.com/7jarvis/demo-sandbox-plata/blob/main/docs/test-cases"
 
@@ -28,7 +25,7 @@ CASE_FILES = {
 }
 
 
-def case(case_id: str) -> Callable[[F], F]:
+def case[F: Callable[..., object]](case_id: str) -> Callable[[F], F]:
     prefix = case_id.split("-")[1]
     url = f"{DOCS_URL}/{CASE_FILES[prefix]}#{case_id.lower()}"
 

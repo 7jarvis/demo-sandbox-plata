@@ -85,9 +85,7 @@ def test_frozen_card_can_be_blocked(customer: SignedInCustomer, card: Card) -> N
 @allure.title("Blocking needs a known reason: {body}")
 @case("TC-STAT-06")
 @pytest.mark.parametrize("body", [{}, {"reason": "broken"}, {"reason": "LOST"}, {"reason": None}])
-def test_block_with_invalid_reason_is_rejected(
-    customer: SignedInCustomer, card: Card, body: dict[str, object]
-) -> None:
+def test_block_with_invalid_reason_is_rejected(customer: SignedInCustomer, card: Card, body: dict[str, object]) -> None:
     with rejected(422, "VALIDATION_ERROR", field="reason"):
         customer.cards.block_raw(card.id, body)
 

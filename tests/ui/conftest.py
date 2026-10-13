@@ -4,6 +4,7 @@ the behavior under test."""
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -24,9 +25,7 @@ def browser_context_args(browser_context_args: dict[str, Any], settings: Setting
 
 
 @pytest.fixture
-def signed_in_page(
-    context: BrowserContext, page: Page, customer: SignedInCustomer, settings: Settings
-) -> Page:
+def signed_in_page(context: BrowserContext, page: Page, customer: SignedInCustomer, settings: Settings) -> Page:
     """A page whose browser context is signed in as ``customer``."""
     sign_in(context, customer.phone, settings.otp_code)
     return page
@@ -48,8 +47,6 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
     report = outcome.get_result()
     page = item.funcargs.get("page") if hasattr(item, "funcargs") else None
     if report.when == "call" and report.failed and page is not None:
-        try:
-            allure.attach(page.screenshot(full_page=True), name="page on failure",
-                          attachment_type=allure.attachment_type.PNG)  # fmt: skip
-        except Exception:  # noqa: BLE001 - a broken page must not hide the real failure
-            pass
+        # a broken page must not hide the real failure
+        with contextlib.suppress(Exception):
+            allure.attach(page.screenshot(full_page=True), "page on failure", allure.attachment_type.PNG)
